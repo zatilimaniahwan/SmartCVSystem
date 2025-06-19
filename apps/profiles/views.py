@@ -164,14 +164,19 @@ class ManageResumesView(SessionRequiredMixin, View):
                         resume_info = extract_resume_info_from_s3(
                             bucket_name, s3_key, aws_access_key, aws_secret_key, region
                         )
-                        if not ParsedData.objects.filter(ResumeID=resume).exists():
-                            ParsedData.objects.create(
-                                ResumeID=resume,
-                                Data=resume_info
-                            )
-                            messages.success(request, "Resume extracted and data saved successfully.")
+                        # Only save if at least one value is not 'unknown'
+                        values = list(resume_info.values())
+                        if any(v and str(v).lower() != "unknown" for v in values):
+                            if not ParsedData.objects.filter(ResumeID=resume).exists():
+                                ParsedData.objects.create(
+                                    ResumeID=resume,
+                                    Data=resume_info
+                                )
+                                messages.success(request, "Resume extracted and data saved successfully.")
+                            else:
+                                messages.info(request, "Parsed data for this resume already exists.")
                         else:
-                            messages.info(request, "Parsed data for this resume already exists.")
+                            messages.warning(request, "Extraction failed or resume data is unknown. Nothing was saved.")
                     else:
                         messages.error(request, "Resume file is not available in S3 for extraction.")
                 except ResumeFile.DoesNotExist:
